@@ -1,0 +1,16 @@
+Math-Collocate
+
+INSTALLATION
+
+To install this module, run the following commands:
+
+    perl Makefile.PL
+    make
+    make test
+    make install
+
+In order to consider an alternate installation location for scripts,
+manpages and libraries, use the PREFIX value as a parameter on the
+command line:
+
+    perl Makefile.PL PREFIX=~/testing
