@@ -1,7 +1,7 @@
-# Copyright 2020 Matthias Boljen.  All rights reserved.
+# Copyright 2021, 2022 Matthias Boljen.  All rights reserved.
 #
 # Created:         Mi 2020-10-28 07:51:16 CET
-# Last modified:   Di 2021-02-02 17:54:42 CET
+# Last modified:   Do 2022-04-21 20:01:12 CEST
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
@@ -21,7 +21,7 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 %EXPORT_TAGS = ( 'all' => [ qw() ] );
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-$VERSION = 0.01;
+$VERSION = 0.02;
 
 use Carp;
 use List::Util qw(all any max min sum uniqnum);
@@ -67,6 +67,11 @@ has 'sh' => (
     is  => 'rw',
 );
 
+has 'bucket' => (
+    isa => 'Maybe[Int]',
+    is  => 'rw',
+);
+
 =encoding utf8
 
 =head1 NAME
@@ -84,6 +89,9 @@ Math::Collocate - Collocation with prediction and filtering for scattered data
     # Adjust signal and noise variances
     $this->sigs($sigs);
     $this->sign($sign);
+
+    # Set bucket size (optional)
+    $this->bucket($size);
 
     # Apply collocation to create regular grid data
     my @result = $this->interpolate({ range => \@range, grid => \@grid });
@@ -762,8 +770,8 @@ sub interpolate
             # Raise warning if auto-detection has been used
             carp sprintf(
                 "Method `interpolate` misses range for dimension %d: " .
-                "using %s", $i,
-                    join(':', map { defined $_ ? "`$_`" : 'undef' } @{$test}));
+                "using [%s]", $i,
+                    join(':', map { defined $_ ? "$_" : 'undef' } @{$test}));
         }
 
         # Apply local range
@@ -807,81 +815,165 @@ sub interpolate
             }
             $val = sqrt($val);
 
-            # Check against minimum non-zero value
-            $self->sh($val)
-                if not $shflag and $val > 0
-                               and (not defined $self->sh or $val < $self->sh);
-
             # Assign distance
             $dist->assign( $k, $l, $val );
             $dist->assign( $l, $k, $val );
         }
     }
 
-    # Initialize signal and noise covariance matrices
-    my $css = Math::MatrixReal->new( $m, $m );
-    my $cnn = Math::MatrixReal->new( $m, $m );
-
-    # Loop over all elements
-    for my $k (1 .. $m)
-    {
-        # Assign diagonal of noise matrix
-        $cnn->assign($k, $k, $self->sign**2 );
-
-        #
-        for my $l ($k .. $m)
-        {
-            # Fetch distance
-            my $skl = $dist->element($k,$l);
-            my $val = $self->_gaussian($skl);
-
-            # Assign elements of signal matrix
-            $css->assign($k,$l,$val);
-            $css->assign($l,$k,$val) if $k != $l;
-        }
-    }
-
-    # Calculate sum of signal and noise covariance matrix
-    my $czz = $css + $cnn;
-
-    # Calculate inverse of covariance matrix
-    my $inv = $czz->inverse;
-
-    # Determine trend, i.e. average value
-    my $z0 = sum(@{$self->{value}}) / $m;
-
-    # Calculate function vector
-    my $zdash = Math::MatrixReal->new( $m, 1 );
-    for my $i (1 .. $m)
-    {
-        $zdash->assign( $i, 1, $self->{value}[$i - 1] - $z0 );
-    }
-
     # Set current point to start position
     my $point = [];
     for my $i (1 .. $self->dim) { $point->[$i - 1] = $range->[$i - 1][0]; }
 
+    # Introduce bucket size for large problems
+    my $msub = defined $self->bucket ? min($m,$self->bucket) : $m;
+
+    # Hash for storing index references
+    my $pos = {};
+    my $poskey = [];
+
+    # Initialize signal and noise covariance matrices
+    my $css = Math::MatrixReal->new( $msub, $msub );
+    my $cnn = Math::MatrixReal->new( $msub, $msub );
+
+    # Declare variables
+    my ($czz,$inv,$z0);
+
+    # Declare solution vector
+    my $zdash;
+
     # Main cycle loop
     CYCLE: while (1)
     {
-        # Initialize distance vector for current point
-        my $ct = Math::MatrixReal->new( 1, $m );
+        # Reset function vector to enable bucket search for large problems
+        $zdash = undef if $m > $msub;
 
-        # Loop over elements of distance vector
-        for my $k (1 .. $m)
+        # Determine function vector unless defined
+        unless (defined $zdash)
         {
-            # Calculate weight
-            my $val = 0;
-            for my $j (1 .. $self->dim)
+            # Initialize index hash
+            $pos = {};
+
+            # Loop over all points to find MSUB closest points
+            for my $k (1 .. $m)
             {
-                $val += ( $self->{sample}[$k - 1][$j - 1] -
-                                         $point->[$j - 1] )**2;
+                # Calculate distance
+                my $val = 0;
+                for my $j (1 .. $self->dim)
+                {
+                    #
+                    $val += ( $self->{sample}[ $k - 1 ][ $j - 1 ] -
+                                               $point->[ $j - 1 ] )**2;
+                }
+                $val = sqrt($val);
+
+                # Check if POS references already filled or not
+                if ($k <= $msub)
+                {
+                    $pos->{$k} = $val;
+                }
+                else
+                {
+                    # Check if current point is closer than any of POS references
+                    foreach my $j (sort { $a <=> $b } keys %{$pos})
+                    {
+                        # Replace POS reference with current point
+                        if ($val < $pos->{$j})
+                        {
+                            delete $pos->{$j};
+                            $pos->{$k} = $val;
+                            last;
+                        }
+                    }
+                }
             }
-            $val = sqrt($val);
+
+            # Sort keys of POS hash
+            $poskey = [ sort { $a <=> $b } keys %{$pos} ];
+
+            # Check against minimum non-zero value
+            unless ($shflag)
+            {
+                # Reset SH
+                $self->sh(undef);
+
+                # Adapt SH to current submatrix
+                for my $k (1 .. $msub)
+                {
+                    for my $l (($k+1) .. $msub)
+                    {
+                        #
+                        my $kk = $poskey->[ $k - 1 ];
+                        my $ll = $poskey->[ $l - 1 ];
+                        #
+                        my $val = $dist->element($kk,$ll);
+                        #
+                        $self->sh($val) if not defined $self->sh or $val < $self->sh;
+                    }
+                }
+            }
+
+            # Loop over all elements
+            for my $k (1 .. $msub)
+            {
+                # Assign diagonal of noise matrix
+                $cnn->assign( $k, $k, $self->sign**2 );
+
+                #
+                for my $l ($k .. $msub)
+                {
+                    # Get indices
+                    my $kk = $poskey->[ $k - 1 ];
+                    my $ll = $poskey->[ $l - 1 ];
+
+                    # Fetch distance and determine Gaussian
+                    my $skl = $dist->element($kk,$ll);
+                    my $val = $self->_gaussian($skl);
+
+                    # Assign Gaussian to CSS
+                    $css->assign($k,$l,$val);
+                    $css->assign($l,$k,$val) if $k != $l;
+                }
+            }
+
+            # Calculate sum of signal and noise covariance matrix
+            $czz = $css + $cnn;
+
+            # Calculate inverse of covariance matrix
+            $inv = $czz->inverse;
+
+            # Determine trend, i.e. average value
+            $z0 = 0;
+            for my $k (1 .. $msub)
+            {
+                my $kk = $poskey->[ $k - 1 ];
+                $z0 += $self->{value}[ $kk - 1 ];
+            }
+            $z0 /= $msub;
+
+            # Calculate function vector
+            $zdash = Math::MatrixReal->new( $msub, 1 );
+            for my $k (1 .. $msub)
+            {
+                my $kk = $poskey->[ $k - 1 ];
+                $zdash->assign( $k, 1, $self->{value}[ $kk - 1 ] - $z0 );
+            }
+        }
+
+        # Initialize distance vector for current point
+        my $ct = Math::MatrixReal->new( 1, $msub );
+
+        for my $k (1 .. $msub)
+        {
+            # Get index and distance
+            my $kk = $poskey->[ $k - 1 ];
+            my $val = $pos->{$kk};
+
+            # Determine Gaussian
             $val = $self->_gaussian($val);
 
             # Assign value to element
-            $ct->assign( 1, $k, $val );
+            $ct->assign(1, $k, $val);
         }
 
         # Calculate result
@@ -1001,7 +1093,7 @@ My father Joachim Boljen for guiding me the way through the mists of statistical
 
 MIT License
 
-Copyright (c) 2021 Matthias Boljen
+Copyright (c) 2021, 2022 Matthias Boljen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
