@@ -161,6 +161,12 @@ a class.
     values at the given samples are free of any measurement errors.
     The default value is `1`.
 
+- **bucket**( _value_ )
+
+    The method **bucket** reads or sets the number of samples to consider for
+    collocation.  If undefined, all samples are used for collocation.  Use this
+    option for large datasets.
+
 - **add**({ sample => _arrayref_, value => _arrayref_ })
 
     The method **add** adds a single sample to the corresponding object.  The
