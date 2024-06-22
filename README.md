@@ -2,6 +2,7 @@
 
 Perl module `Math::Collocate` - Collocation with prediction and filtering for scattered data
 
+
 ## Synopsis
 
 ```perl
@@ -19,32 +20,6 @@ $this->sign($sign);
 my @result = $this->interpolate({ range => \@range, grid => \@grid });
 ```
 
-## Requires
-
-+ [List::Util](https://metacpan.org/pod/List::Util)
-+ [Math::MatrixReal](https://metacpan.org/pod/Math::MatrixReal)
-+ [Moose](https://metacpan.org/pod/Moose)
-+ [Scalar::Util](https://metacpan.org/pod/Scalar::Util)
-+ [Spreadsheet::Read::Simple](https://github.com/mboljen/spreadsheet-read-simple-perl)
-
-## Installation
-
-To install this module, run the following commands:
-
-```bash
-$ perl Makefile.PL
-$ make
-$ make test
-$ make install
-```
-
-In order to consider an alternate installation location for scripts,
-manpages and libraries, use the `PREFIX` value as a parameter on the
-command line:
-
-```bash
-$ perl Makefile.PL PREFIX=~/testing
-```
 
 ## Description
 
@@ -102,15 +77,17 @@ The noise variance &sigma;<sub>n</sub> is set by the user.  By adjusting the
 variances &sigma;<sub>s</sub> and &sigma;<sub>n</sub>, the user can control the
 separation of the corresponding constituents.
 
-### Export
+
+## Export
 
 Nothing.
+
 
 ## Methods
 
 ### Constructor
 
-- **new**( _key_ => _value_ )
++ **new**( _key_ => _value_ )
 
     The constructor **new** expects a list of key-value pairs and returns the
     reference to the created instance.  The following keys are accepted.
@@ -145,45 +122,45 @@ Here is a list of object methods available.  Object methods are applied to
 the object in question, in contrast with class methods which are applied to
 a class.
 
-- **size**
++ **size**
 
     The method **size** returns the number of available samples.
 
-- **sigs**( _value_ )
++ **sigs**( _value_ )
 
     The method **sigs** reads or sets the *signal* variance &sigma;<sub>s</sub>
     for the corresponding object.  The default value is `5`.
 
-- **sign**( _value_ )
++ **sign**( _value_ )
 
     The method **sign** reads or sets the *noise* variance &sigma;<sub>n</sub>
     for the corresponding object.  Set the noise variance to zero, if the
     values at the given samples are free of any measurement errors.
     The default value is `1`.
 
-- **bucket**( _value_ )
++ **bucket**( _value_ )
 
     The method **bucket** reads or sets the number of samples to consider for
     collocation.  If undefined, all samples are used for collocation.  Use this
     option for large datasets.
 
-- **add**({ sample => _arrayref_, value => _arrayref_ })
++ **add**({ sample => _arrayref_, value => _arrayref_ })
 
     The method **add** adds a single sample to the corresponding object.  The
     method accepts a single argument, which can either be a hash reference or an
     array reference.
 
-- **prediction**
++ **prediction**
 
     The method **prediction** returns the normalized prediction fraction in the
     range `[0..1]`.
 
-- **filter**
++ **filter**
 
     The method **filter** returns the normalized filtering fraction in the
     range `[0..1]`.
 
-- **interpolate**({ range => _arrayref_, grid => _arrayref_ })
++ **interpolate**({ range => _arrayref_, grid => _arrayref_ })
 
     The method **interpolate** applies the collocation algorithm and serves as
     primary method of this class.  The method receives an optional argument which
@@ -225,7 +202,7 @@ a class.
         A scalar value is allowed for objects with dimension 1 only, otherwise an
         error is raised.  The method will return the resulting value as a scalar.
 
-- **newline**( _index_ )
++ **newline**( _index_ )
 
     The method **newline** returns `true` or `false` whether the sample
     referred to by the given _index_ closes a block, i.e. is a multiple of
@@ -233,54 +210,68 @@ a class.
     useful to insert a newline when the output data shall be forwarded
     to **gnuplot**.
 
-## Subroutines
+
+### Subroutines
 
 The following routines are provided.
 
-- **isequal**( _value1_, _value2_ [, _tol_ ] )
++ **isequal**( _value1_, _value2_ [, _tol_ ] )
 
     This subroutine compares two floating-point numbers _value1_ and
     _value2_ and checks whether they are equal within a reasonable
     tolerance _tol_.
 
-## References
+
+## Requirements
+
++ [List::Util](https://metacpan.org/pod/List::Util)
++ [Math::MatrixReal](https://metacpan.org/pod/Math::MatrixReal)
++ [Moose](https://metacpan.org/pod/Moose)
++ [Scalar::Util](https://metacpan.org/pod/Scalar::Util)
++ [Spreadsheet::Read::Simple](https://github.com/mboljen/spreadsheet-read-simple-perl)
+
+
+## Installation
+
+To install this module, run the following commands:
+
+```console
+$ perl Makefile.PL
+$ make
+$ make test
+$ make install
+```
+
+In order to consider an alternate installation location for scripts,
+manpages and libraries, use the `PREFIX` value as a parameter on the
+command line:
+
+```console
+$ perl Makefile.PL PREFIX=~/testing
+```
+
+
+## See also
 
 + Höpcke, W. (1980):
 
   *Fehlerlehre und Ausgleichsrechnung*.  De Gruyter, Pages 211 f.
 
-- Moritz, H. (1972):
++ Moritz, H. (1972):
 
   *Advanced least-squares methods*.  Report No. 175, Department of Geodetic Science, Ohio State University.  132 Pages.
 
-- Ruffhead, A. (1987):
++ Ruffhead, A. (1987):
 
   *An introduction to least-squares collocation*.  Survey Review, Volume 29, Number 224, Pages 85-94.
+
 
 ## Acknowledgements
 
 My father Joachim Boljen for guiding me the way through the mists of statistical geodesy for filtering, prediction and modeling.
 
-## Copyright and Licnse
 
-MIT License
+## License
 
-Copyright (c) 2020, 2021 Matthias Boljen
+[MIT](https://choosealicense.com/licenses/mit/)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
